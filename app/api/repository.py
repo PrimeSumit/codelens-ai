@@ -1,4 +1,4 @@
-from fastapi import APIRouter,Depends
+from fastapi import APIRouter,Depends,UploadFile,File
 
 from sqlalchemy.orm import Session
 
@@ -48,3 +48,7 @@ def update_repo(
     db:Session=Depends(get_db)
 ):
     return service.update_repo(db,repository_id,repository)
+
+@router.post("/upload")
+def upload_repo(file:UploadFile=File(...)):
+    return service.upload_repo(file)
