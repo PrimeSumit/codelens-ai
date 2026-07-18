@@ -1,78 +1,50 @@
-from fastapi import APIRouter,Depends,HTTPException
+from fastapi import APIRouter,Depends
+
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+
+
 from app.db.session import get_db
-from app.models.repository import Repository
+
 from app.schemas.repository import RepositoryCreate,RepoUpdate
+from app.services.repository_service import RepositoryService
+
 
 router=APIRouter(prefix="/repositories",tags=["Repositories"])
+service=RepositoryService()
+
 
 @router.post("/")
 def create_repository(
     repository: RepositoryCreate,
     db:Session=Depends(get_db),
 ):
-    new_repository=Repository(
-        name=repository.name,
-        github_url=str(repository.github_url),
-    )
-    db.add(new_repository)
-    db.commit()
-    db.refresh(new_repository)
-    return new_repository
+    return service.create_repo(db,repository)
 
 @router.get("/")
 def getrepo(
     db:Session=Depends(get_db),
 
 ):
-    repositories=db.execute(
-        select(Repository)
-    ).scalars().all()
-
-    return repositories
+    return service.get_repos(db)
 
 @router.get("/{repository_id}")
 def get_repo(
     repository_id:int,
     db:Session=Depends(get_db)
 ):
-    repository=db.get(Repository,repository_id)
-    if repository is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Repository Not Found!"
-        )
-
-
-    return repository
+    return service.get_repo_by_id(db,repository_id)
 
 @router.delete("/{repository_id}")
 def delete_repo(
     repository_id:int,
     db:Session=Depends(get_db)
 ):
-    repository=db.get(Repository,repository_id)
-    if repository is None:
-        raise HTTPException(status_code=404,detail="Repository Not Found!")
-    db.delete(repository)
-    db.commit()
-
-    return {"message": "Repository deleted successfully"}
+    return service.delete_repo(db,repository_id)
 
 @router.put("/{repository_id}")
-def updateRepo(
+def update_repo(
     repository_id:int,
     repository: RepoUpdate,
     db:Session=Depends(get_db)
 ):
-    repo=db.get(Repository,repository_id)
-    if repo is None:
-        raise HTTPException(status_code=404,detail="Repository Not Found!")
-    repo.name=repository.name
-    repo.github_url=str(repository.github_url)
-
-    db.commit()
-    db.refresh(repo)
-
-    return repo
+    return service.update_repo(db,repository_id,repository)
