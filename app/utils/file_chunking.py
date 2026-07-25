@@ -1,4 +1,4 @@
-import ast,json
+import ast,json,yaml
 from pathlib import Path
 from app.utils.file_reader import read_file
 
@@ -109,11 +109,32 @@ def chunk_json(file_path: Path):
 
 
 def chunk_yaml(file_path: Path):
-    pass
+    content=read_file(file_path)
+    if not content:
+        return []
+    try:
+        yaml.safe_load(content)
+    except yaml.YAMLError:
+        return []
+    return [{
+        "file_path":str(file_path),
+        "type":"yaml",
+        "name": file_path.stem,
+        "code": content
+    }]
 
 
 def chunk_text(file_path: Path):
-    pass
+    content=read_file(file_path)
+    if not content:
+        return []
+    
+    return [{
+        "file_path":str(file_path),
+        "type":"text",
+        "name": file_path.stem,
+        "code": content
+    }]
 
 
 
@@ -126,7 +147,7 @@ CHUNKER={
     ".txt": chunk_text,
 }
 def chunk_file(file_path:Path):
-    chunker=CHUNKER.get(file_path.suffix,chunk_text)
+    chunker=CHUNKER.get(file_path.suffix.lower(),chunk_text)
     return chunker(file_path)
 
         
