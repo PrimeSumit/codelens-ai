@@ -1,6 +1,6 @@
-from app.services.embedding_services import EmbeddingServices
+from app.services.embedding_service import EmbeddingService
 
-embedding_service = EmbeddingServices()
+embedding_service = EmbeddingService()
 
 texts = [
     "def login(username, password):\n    return True",
