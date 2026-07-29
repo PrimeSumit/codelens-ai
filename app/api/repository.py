@@ -52,3 +52,10 @@ def update_repo(
 @router.post("/upload")
 def upload_repo(db:Session=Depends(get_db),file:UploadFile=File(...)):
     return service.upload_repo(db,file)
+
+@router.post("/{repository_id}/process")
+def process_repository(
+    repository_id: int,
+    db: Session = Depends(get_db),
+):
+    return service.process_repo(db, repository_id)

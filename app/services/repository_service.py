@@ -6,9 +6,15 @@ from sqlalchemy.orm import Session
 from app.models.repository import Repository
 from app.schemas.repository import RepositoryCreate,RepoUpdate
 from app.utils.file_scanner import scan_repo
+from app.utils.file_chunking import chunk_file
+
+from app.services.embedding_service import EmbeddingService
+from app.services.qdrant_service import QdrantService
 
 class RepositoryService:
-    
+    def __init__(self):
+        self.embedding_service=EmbeddingService()
+        self.qdrant_service=QdrantService()
 
     def create_repo(self,db:Session,repository:RepositoryCreate):
         repo=Repository( name=repository.name,
@@ -41,9 +47,9 @@ class RepositoryService:
     def update_repo(self,db:Session,repo_id:int,repository:RepoUpdate):
         repo=db.get(Repository,repo_id)
         if repo is None:
-            raise HTTPException(status_code=404,detail="Repository Not Found!")
+            raise HTTPException(status_code=404,detail="Repository Not Found.")
         repo.name=repository.name
-        repo.github_url=str(repository.github_url)
+        repo.github_url=repository.github_url
 
         db.commit()
         db.refresh(repo)
@@ -53,7 +59,7 @@ class RepositoryService:
     def delete_repo(self,db:Session,repo_id:int):
         repo=db.get(Repository,repo_id)
         if repo is None:
-            raise HTTPException(status_code=404,detail="Repository Not Found!")
+            raise HTTPException(status_code=404,detail="Repository Not Found.")
         db.delete(repo)
         db.commit()
 
@@ -77,8 +83,15 @@ class RepositoryService:
         extract_path=storage_path / zip_path.stem
         extract_path.mkdir(exist_ok=True)
 
-        with zipfile.ZipFile(zip_path,"r") as zip_ref:
-            zip_ref.extractall(extract_path)
+        try:
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                zip_ref.extractall(extract_path)
+            zip_path.unlink()
+        except zipfile.BadZipFile:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid ZIP file."
+            )
 
         repo=Repository(
             name=zip_path.stem,
@@ -94,4 +107,53 @@ class RepositoryService:
         "repository_id": repo.id,
         }
     
-    
+    def process_repo(self,db:Session,repo_id:int):
+        repo=db.get(Repository,repo_id)
+        if repo is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Repository Not found."
+            )
+        repo_path=Path(repo.local_path)
+        if not repo_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail="Repository directory not found."
+            )
+        files=scan_repo(repo_path)
+        if not files:
+            return {
+            "message": "No supported files found.",
+            "repository_id": repo_id,
+            "files": 0,
+            "chunks": 0,
+            }
+
+        all_chunks=[]
+
+        for file_path in files:
+            chunks=chunk_file(file_path)
+            all_chunks.extend(chunks)
+
+        if not all_chunks:
+            return {
+            "message": "No chunks found.",
+            "repository_id": repo_id,
+            "files": len(files),
+            "chunks": 0,
+            }
+
+        embeddings=self.embedding_service.passage(
+            [chunk["code"] for chunk in all_chunks]
+        )
+        self.qdrant_service.upsert_chunks(
+            repository_id=repo_id,
+            chunks=all_chunks,
+            embeddings=embeddings
+        )
+        return {
+        "message": "Repository indexed successfully.",
+        "repository_id": repo_id,
+        "files": len(files),
+        "chunks": len(all_chunks),
+        }
