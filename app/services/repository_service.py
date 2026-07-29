@@ -8,9 +8,11 @@ from app.schemas.repository import RepositoryCreate,RepoUpdate
 from app.utils.file_scanner import scan_repo
 
 class RepositoryService:
+    
+
     def create_repo(self,db:Session,repository:RepositoryCreate):
         repo=Repository( name=repository.name,
-        github_url=str(repository.github_url),
+        github_url=repository.github_url,
     )
         db.add(repo)
         db.commit()
@@ -57,7 +59,7 @@ class RepositoryService:
 
         return {"message": "Repository deleted successfully"}
     
-    def upload_repo(self,file:UploadFile):
+    def upload_repo(self,db:Session,file:UploadFile):
         if not file.filename.lower().endswith(".zip"):
             raise HTTPException(
                 status_code=400,
@@ -78,11 +80,18 @@ class RepositoryService:
         with zipfile.ZipFile(zip_path,"r") as zip_ref:
             zip_ref.extractall(extract_path)
 
-        files = scan_repo(extract_path)
+        repo=Repository(
+            name=zip_path.stem,
+            github_url=None,
+            local_path=str(extract_path)
+        )
+        db.add(repo)
+        db.commit()
+        db.refresh(repo)
 
         return {
-            "message": "Repository scanned successfully",
-            "files": [str(file) for file in files]
+        "message": "Repository uploaded successfully",
+        "repository_id": repo.id,
         }
     
     

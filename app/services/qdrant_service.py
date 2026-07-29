@@ -1,5 +1,5 @@
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance,VectorParams,PointStruct
+from qdrant_client.models import Distance,VectorParams,PointStruct,Filter,FieldCondition,MatchValue
 from app.core.config import settings
 from uuid import uuid4
 class QdrantService:
@@ -47,3 +47,16 @@ class QdrantService:
         self.client.upsert(collection_name=settings.QDRANT_COLLECTION,
                                points=points)
         return len(points)
+
+    def search(self,repository_id:int,query_embedding:list[float],limit:int=5):
+        
+        query_filter=Filter(
+            must=[FieldCondition(key="repository_id",match=MatchValue(value=repository_id))]
+        )
+        result=self.client.query_points(
+            collection_name=settings.QDRANT_COLLECTION,
+            query=query_embedding,
+            query_filter=query_filter,
+            limit=limit
+        )
+        return result.points
