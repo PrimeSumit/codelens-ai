@@ -4,14 +4,14 @@ from sqlalchemy.orm import Session
 
 
 from app.db.session import get_db
-
+from app.schemas.chat import ChatRequest,ChatResponse
 from app.schemas.repository import RepositoryCreate,RepoUpdate
 from app.services.repository_service import RepositoryService
-
+from app.services.rag_service import RAGService
 
 router=APIRouter(prefix="/repositories",tags=["Repositories"])
 service=RepositoryService()
-
+rag_service = RAGService()
 
 @router.post("/")
 def create_repository(
@@ -59,3 +59,15 @@ def process_repository(
     db: Session = Depends(get_db),
 ):
     return service.process_repo(db, repository_id)
+
+@router.post("/{repository_id}/chat",response_model=ChatResponse)
+def chat_with_repo(
+    repository_id:int,
+    request:ChatRequest
+
+):
+    answer=rag_service.ask(
+        repository_id=repository_id,
+        question=request.question,
+    )
+    return ChatResponse(answer=answer)
