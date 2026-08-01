@@ -9,7 +9,14 @@ def chunk_python(file_path: Path):
     try:
         tree=ast.parse(source_code)
     except SyntaxError:
-        return []
+        return [
+            {
+                "file_path": str(file_path),
+                "type": "python",
+                "name": file_path.stem,
+                "code": source_code,
+            }
+        ]
 
     chunks = []
     lines = source_code.splitlines()

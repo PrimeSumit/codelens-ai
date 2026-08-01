@@ -6,5 +6,5 @@ class Repository(Base):
     __tablename__="repository"
     id:Mapped[int]=mapped_column(primary_key=True)
     name:Mapped[str]=mapped_column(String(255))
-    github_url:Mapped[str]=mapped_column(String(500),nullable=True)
-    local_path:Mapped[str]=mapped_column(nullable=False)
+    github_url:Mapped[str|None]=mapped_column(String(500),nullable=True)
+    

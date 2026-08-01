@@ -1,6 +1,6 @@
 from fastapi import HTTPException,UploadFile
 from pathlib import Path
-import shutil,zipfile
+import shutil,zipfile,tempfile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.models.repository import Repository
@@ -72,88 +72,118 @@ class RepositoryService:
                 detail="Only ZIP files are allowed."
             )
 
-        storage_path=Path("storage")
-        storage_path.mkdir(exist_ok=True)
         
-        zip_path=storage_path / file.filename
-
-        with zip_path.open("wb") as buffer:
-            shutil.copyfileobj(file.file,buffer)
         
-        extract_path=storage_path / zip_path.stem
-        extract_path.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
 
-        try:
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extractall(extract_path)
-            zip_path.unlink()
-        except zipfile.BadZipFile:
-            raise HTTPException(
+            zip_path = temp_path / file.filename
+
+            with zip_path.open("wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+
+            extract_path = temp_path / zip_path.stem
+            extract_path.mkdir(exist_ok=True)
+            try:
+                with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                    zip_ref.extractall(extract_path)
+                zip_path.unlink()
+            except zipfile.BadZipFile:
+                raise HTTPException(
                 status_code=400,
                 detail="Invalid ZIP file."
+                )
+            files=scan_repo(extract_path)
+            if not files:
+                
+                return {
+                    "message": "No supported files found.",
+                    "files": 0,
+                    "chunks": 0,
+                    }
+            all_chunks=[]
+            for file_path in files:
+                chunks=chunk_file(file_path)
+                all_chunks.extend(chunks)
+            if not all_chunks:
+                return {
+                        "message": "No chunks found.",
+                        "files": len(files),
+                        "chunks": 0,
+                        }
+            repo = Repository(
+                name=zip_path.stem,
+                github_url=None,
             )
 
-        repo=Repository(
-            name=zip_path.stem,
-            github_url=None,
-            local_path=str(extract_path)
-        )
-        db.add(repo)
-        db.commit()
-        db.refresh(repo)
+            db.add(repo)
+            db.commit()
+            db.refresh(repo)
 
+            texts = [chunk["code"] for chunk in all_chunks]
+
+            embeddings = self.embedding_service.passage(texts)
+        
+
+            self.qdrant_service.upsert_chunks(
+                repository_id=repo.id,
+                chunks=all_chunks,
+                embeddings=embeddings
+            )
         return {
-        "message": "Repository uploaded successfully",
-        "repository_id": repo.id,
+            "message": "Repository uploaded and indexed successfully.",
+            "repository_id": repo.id,
+            "files": len(files),
+            "chunks": len(all_chunks),
         }
     
-    def process_repo(self,db:Session,repo_id:int):
-        repo=db.get(Repository,repo_id)
-        if repo is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Repository Not found."
-            )
-        repo_path=Path(repo.local_path)
-        if not repo_path.exists():
-            raise HTTPException(
-                status_code=404,
-                detail="Repository directory not found."
-            )
-        files=scan_repo(repo_path)
-        if not files:
-            return {
-            "message": "No supported files found.",
-            "repository_id": repo_id,
-            "files": 0,
-            "chunks": 0,
-            }
+    # def process_repo(self,db:Session,repo_id:int):
+    #     repo=db.get(Repository,repo_id)
+    #     if repo is None:
+    #         raise HTTPException(
+    #             status_code=404,
+    #             detail="Repository Not found."
+    #         )
+    #     repo_path=Path(repo.local_path)
+    #     if not repo_path.exists():
+    #         raise HTTPException(
+    #             status_code=404,
+    #             detail="Repository directory not found."
+    #         )
+    #     files=scan_repo(repo_path)
+    #     if not files:
+    #         return {
+    #         "message": "No supported files found.",
+    #         "repository_id": repo_id,
+    #         "files": 0,
+    #         "chunks": 0,
+    #         }
 
-        all_chunks=[]
+    #     all_chunks=[]
 
-        for file_path in files:
-            chunks=chunk_file(file_path)
-            all_chunks.extend(chunks)
+    #     for file_path in files:
+    #         chunks=chunk_file(file_path)
+    #         all_chunks.extend(chunks)
 
-        if not all_chunks:
-            return {
-            "message": "No chunks found.",
-            "repository_id": repo_id,
-            "files": len(files),
-            "chunks": 0,
-            }
+    #     if not all_chunks:
+    #         return {
+    #         "message": "No chunks found.",
+    #         "repository_id": repo_id,
+    #         "files": len(files),
+    #         "chunks": 0,
+    #         }
 
-        embeddings=self.embedding_service.passage(
-            [chunk["code"] for chunk in all_chunks]
-        )
-        self.qdrant_service.upsert_chunks(
-            repository_id=repo_id,
-            chunks=all_chunks,
-            embeddings=embeddings
-        )
-        return {
-        "message": "Repository indexed successfully.",
-        "repository_id": repo_id,
-        "files": len(files),
-        "chunks": len(all_chunks),
-        }
+    #     embeddings=self.embedding_service.passage(
+    #         [chunk["code"] for chunk in all_chunks]
+    #     )
+    #     self.qdrant_service.upsert_chunks(
+    #         repository_id=repo_id,
+    #         chunks=all_chunks,
+    #         embeddings=embeddings
+    #     )
+    #     return {
+    #     "message": "Repository indexed successfully.",
+    #     "repository_id": repo_id,
+    #     "files": len(files),
+    #     "chunks": len(all_chunks),
+    #     }

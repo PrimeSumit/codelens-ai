@@ -5,10 +5,8 @@ SUPPORTED_EXTENSIONS = {
     ".md",
     ".txt",
     ".json",
-    ".toml",
     ".yaml",
     ".yml",
-    ".ini",
 }
 IGNORED_DIRECTORIES = {
     ".git",
@@ -18,6 +16,10 @@ IGNORED_DIRECTORIES = {
     "node_modules",
     "dist",
     "build",
+    ".idea",
+    ".vscode",
+    ".pytest_cache",
+    ".mypy_cache",
 }
 
 def scan_repo(repo_path:Path)->list[Path]:
@@ -25,7 +27,7 @@ def scan_repo(repo_path:Path)->list[Path]:
     for path in repo_path.rglob("*"):
         if not path.is_file():
             continue
-        if any(part in IGNORED_DIRECTORIES for part in path.parts):
+        if any(parent.name in IGNORED_DIRECTORIES for parent in path.parents):
             continue
 
         if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
