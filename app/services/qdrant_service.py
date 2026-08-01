@@ -2,9 +2,8 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance,VectorParams,PointStruct,Filter,FieldCondition,MatchValue
 from app.core.config import settings
 from uuid import uuid4
-from qdrant_client.http.exceptions import UnexpectedResponse
-from fastapi import HTTPException
-import traceback
+from qdrant_client.models import PayloadSchemaType
+
 
 
 class QdrantService:
@@ -26,6 +25,11 @@ class QdrantService:
                 size=settings.VECTOR_DIMENSION,
                 distance=Distance.COSINE
             )
+        )
+        self.client.create_payload_index(
+            collection_name=settings.QDRANT_COLLECTION,
+            field_name="repository_id",
+            field_schema=PayloadSchemaType.INTEGER,
         )
         
         return True
