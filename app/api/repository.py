@@ -13,12 +13,6 @@ router=APIRouter(prefix="/repositories",tags=["Repositories"])
 service=RepositoryService()
 rag_service = RAGService()
 
-@router.post("/")
-def create_repository(
-    repository: RepositoryCreate,
-    db:Session=Depends(get_db),
-):
-    return service.create_repo(db,repository)
 
 @router.get("/")
 def getrepo(
@@ -41,13 +35,6 @@ def delete_repo(
 ):
     return service.delete_repo(db,repository_id)
 
-@router.put("/{repository_id}")
-def update_repo(
-    repository_id:int,
-    repository: RepoUpdate,
-    db:Session=Depends(get_db)
-):
-    return service.update_repo(db,repository_id,repository)
 
 @router.post("/upload")
 def upload_repo(db:Session=Depends(get_db),file:UploadFile=File(...)):

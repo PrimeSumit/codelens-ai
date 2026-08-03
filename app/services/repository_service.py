@@ -16,14 +16,7 @@ class RepositoryService:
         self.embedding_service=EmbeddingService()
         self.qdrant_service=QdrantService()
 
-    def create_repo(self,db:Session,repository:RepositoryCreate):
-        repo=Repository( name=repository.name,
-        github_url=repository.github_url,
-    )
-        db.add(repo)
-        db.commit()
-        db.refresh(repo)
-        return repo
+    
 
     def get_repos(self,db:Session):
         repos=db.execute(
@@ -43,18 +36,6 @@ class RepositoryService:
 
         return repo
 
-
-    def update_repo(self,db:Session,repo_id:int,repository:RepoUpdate):
-        repo=db.get(Repository,repo_id)
-        if repo is None:
-            raise HTTPException(status_code=404,detail="Repository Not Found.")
-        repo.name=repository.name
-        repo.github_url=repository.github_url
-
-        db.commit()
-        db.refresh(repo)
-
-        return repo
 
     def delete_repo(self,db:Session,repo_id:int):
         repo=db.get(Repository,repo_id)
