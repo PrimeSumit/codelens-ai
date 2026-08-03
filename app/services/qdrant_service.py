@@ -1,5 +1,5 @@
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance,VectorParams,PointStruct,Filter,FieldCondition,MatchValue
+from qdrant_client.models import Distance,VectorParams,PointStruct,Filter,FieldCondition,MatchValue,FilterSelector
 from app.core.config import settings
 from uuid import uuid4
 from qdrant_client.models import PayloadSchemaType
@@ -80,3 +80,19 @@ class QdrantService:
             limit=limit
         )
         return result.points
+    
+    def delete_repo_chunks(self, repository_id: int):
+        self.client.delete(
+            collection_name=settings.QDRANT_COLLECTION,
+            points_selector=FilterSelector(
+                filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="repository_id",
+                            match=MatchValue(value=repository_id),
+                        )
+                    ]
+                )
+            ),
+        )
+    

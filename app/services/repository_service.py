@@ -41,6 +41,7 @@ class RepositoryService:
         repo=db.get(Repository,repo_id)
         if repo is None:
             raise HTTPException(status_code=404,detail="Repository Not Found.")
+        self.qdrant_service.delete_repo_chunks(repo.id)
         db.delete(repo)
         db.commit()
 
