@@ -20,6 +20,13 @@ class RAGService:
             repository_id=repository_id,
             query_embedding=query_embedding,
         )
+        print("\nRetrieved chunks:")
+        for chunk in chunks:
+            payload = chunk.payload
+            print(
+                payload["file_path"],
+                payload["name"],
+            )
 
         if not chunks:
             return (
@@ -40,26 +47,90 @@ class RAGService:
 
             context += (
                 f"File: {payload['file_path']}\n"
-                f"Type: {payload['type']}\n\n"
+                f"Type: {payload['type']}\n"
+                f"Name: {payload['name']}\n"
+                f"Lines: {payload.get('start_line', '-')}-{payload.get('end_line', '-')}\n\n"
                 f"{payload['code']}\n"
-                f"{'-' * 60}\n\n"
+                f"{'-' * 80}\n\n"
             )
 
         prompt = f"""
-            You are an AI assistant that answers questions about a software repository.
+    You are CodeLens AI, an expert software engineer specializing in understanding and explaining software repositories.
 
-            Use ONLY the repository context below.
+    Answer ONLY using the repository context below.
 
-            If the answer is not present in the context, say you don't have enough information.
+    ## Rules
 
-            Repository Context:
-                {context}
+    - Never invent code or functionality.
+    - Use only the provided repository context.
+    - If the context is insufficient, clearly say so.
+    - Keep explanations concise and technically accurate.
+    - Mention relevant file names.
+    - Prefer production code over tests unless the question is about tests.
 
-            Question:
-                {question}
+    ## Response Format
 
-            Answer:
-        """
+    Write the answer in Markdown.
+
+    Start with a short summary.
+
+    Use headings and bullet points.
+
+    If explaining a file, include:
+
+    # File Overview
+
+    ## Purpose
+
+    ## Main Components
+
+    ## How It Works
+
+    ## Related Files
+
+    ## Sources
+
+    If explaining a function, include:
+
+    # Function Overview
+
+    ## Location
+
+    ## Purpose
+
+    ## Parameters
+
+    ## Returns
+
+    ## How It Works
+
+    ## Related Components
+
+    ## Sources
+
+    If explaining a workflow, include:
+
+    # Workflow
+
+    ## Overview
+
+    ## Step-by-Step Flow
+
+    ## Files Involved
+
+    ## Summary
+
+    ## Sources
+
+    Repository Context:
+
+    {context}
+
+    User Question:
+
+    {question}
+
+    Answer:
+    """
 
         return prompt
-        

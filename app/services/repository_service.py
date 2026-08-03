@@ -94,6 +94,10 @@ class RepositoryService:
                 detail="Invalid ZIP file."
                 )
             files=scan_repo(extract_path)
+            print("\nScanned files:")
+            for file in files:
+                print(file)
+
             if not files:
                 
                 return {
@@ -103,7 +107,10 @@ class RepositoryService:
                     }
             all_chunks=[]
             for file_path in files:
-                chunks=chunk_file(file_path)
+                chunks=chunk_file(
+                    file_path=file_path,
+                    repo_root=extract_path,)
+                
                 all_chunks.extend(chunks)
             if not all_chunks:
                 return {
@@ -123,8 +130,11 @@ class RepositoryService:
             texts = [chunk["code"] for chunk in all_chunks]
 
             embeddings = self.embedding_service.passage(texts)
-        
 
+            print("\nChunks to upload:")
+            for chunk in all_chunks:
+                if "auth" in chunk["file_path"]:
+                    print(chunk["file_path"], chunk["name"])
             self.qdrant_service.upsert_chunks(
                 repository_id=repo.id,
                 chunks=all_chunks,

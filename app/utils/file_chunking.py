@@ -153,8 +153,33 @@ CHUNKER={
     ".yml": chunk_yaml,
     ".txt": chunk_text,
 }
-def chunk_file(file_path:Path):
+def classify_file(file_path: Path) -> str:
+    path = file_path.as_posix().lower()
+    name = file_path.name.lower()
+
+    if (
+        "/test/" in path
+        or "/tests/" in path
+        or name.startswith("test_")
+        or name.endswith("_test.py")
+    ):
+        return "test"
+
+    if "/docs/" in path or name == "readme.md":
+        return "documentation"
+
+    if "/migrations/" in path:
+        return "migration"
+
+    return "source"
+def chunk_file(file_path:Path,repo_root: Path):
     chunker=CHUNKER.get(file_path.suffix.lower(),chunk_text)
-    return chunker(file_path)
+    chunks = chunker(file_path)
+    relative_path = file_path.relative_to(repo_root).as_posix()
+    category = classify_file(Path(relative_path))
+    for chunk in chunks:
+        chunk["file_path"] = relative_path
+        chunk["file_category"] = category
+    return chunks
 
         

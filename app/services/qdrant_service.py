@@ -43,6 +43,7 @@ class QdrantService:
             payload = {
                 "repository_id": repository_id,
                 "file_path": chunk["file_path"],
+                "file_category": chunk["file_category"],
                 "type": chunk["type"],
                 "name": chunk["name"],
                 "code": chunk["code"],
@@ -59,6 +60,7 @@ class QdrantService:
                 
             )
             points.append(point)
+        
         self.client.upsert(
             collection_name=settings.QDRANT_COLLECTION,
             points=points,
@@ -66,7 +68,7 @@ class QdrantService:
 
         return len(points)
 
-    def search(self,repository_id:int,query_embedding:list[float],limit:int=5):
+    def search(self,repository_id:int,query_embedding:list[float],limit:int=20):
         
         query_filter=Filter(
             must=[FieldCondition(key="repository_id",match=MatchValue(value=repository_id))]
